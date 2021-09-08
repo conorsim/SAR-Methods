@@ -13,7 +13,7 @@ class Cluster(Image):
     # based on http://web.pdx.edu/~jduh/courses/Archive/geog481w07/Students/Vassilaros_ISODATA.pdf
 
     # img - band of an Image object
-    def isodata(img, random_init=False, start_num=20, max_iter=10, std_threshold=0.1, merge_threshold=0.1, \
+    def isodata(self, img, random_init=False, start_num=20, max_iter=10, std_threshold=0.1, merge_threshold=0.1, \
                 size_threshold=50):
 
         # initialize starting cluster centers

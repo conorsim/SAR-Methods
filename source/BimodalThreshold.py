@@ -15,7 +15,7 @@ class BimodalThreshold(Image):
 
     """ Helper functions """
 
-    def gaussian_convolution(y):
+    def gaussian_convolution(self, y):
         gs = [0.2261, 0.5478, 0.2261] # from Uddin paper
         pad_y = np.zeros(len(y)+2)
         pad_y[1:-1] = y
@@ -27,7 +27,7 @@ class BimodalThreshold(Image):
             new_y[k-1] = t1+t2+t3
         return new_y
 
-    def count_peaks(x, y, cs, dcs, eps_tol=1e-16):
+    def count_peaks(self, x, y, cs, dcs, eps_tol=1e-16):
         peak_cnt = 0
         valley_cnt = 0
         peaks = []
@@ -49,7 +49,7 @@ class BimodalThreshold(Image):
                         valleys.append(fsolve(dcs, x[i]))
         return peak_cnt, valley_cnt, peaks, valleys
 
-    def p1_p2_m1_m2_sb_sw_st(th, hist, M):
+    def p1_p2_m1_m2_sb_sw_st(self, th, hist, M):
         t_vector = np.arange(0,256,1)
         # splicing
         t_lower = t_vector[0:th]
@@ -70,7 +70,7 @@ class BimodalThreshold(Image):
         Bt = sb2/st2
         return Bt
 
-    def block_arrays_list(Base_array, block_dim):
+    def block_arrays_list(self, Base_array, block_dim):
         row, col = Base_array.shape
         Number_row_blocks = math.ceil(row / block_dim)
         Number_col_blocks = math.ceil(col / block_dim)
@@ -93,8 +93,8 @@ class BimodalThreshold(Image):
                 Squares_list.append(item_use)
         return Squares_list, Number_row_blocks, Number_col_blocks
 
-    def block_arrays(Base_array, block_dim):
-        Squares_list, Number_row_blocks, Number_col_blocks = block_arrays_list(Base_array, block_dim)
+    def block_arrays(self, Base_array, block_dim):
+        Squares_list, Number_row_blocks, Number_col_blocks = self.block_arrays_list(Base_array, block_dim)
         N = 0
         subset_arrays = []
         for j in range(0, Number_row_blocks):
@@ -110,7 +110,7 @@ class BimodalThreshold(Image):
                 subset_arrays.append(subset_array)
         return subset_arrays, Number_row_blocks, Number_col_blocks
 
-    def normalize_array_and_bin(subset_array, N):
+    def normalize_array_and_bin(self, subset_array, N):
         subset_array[subset_array == 0] = np.nan
         subset_array_flatten = subset_array.flatten()
         subset_array_norm = (subset_array_flatten - min(subset_array_flatten))/(max(subset_array_flatten) - min(subset_array_flatten))
@@ -121,7 +121,7 @@ class BimodalThreshold(Image):
 
     """ Driver to process using LM and Otsu """
 
-    def ostu_and_lm(images, ptf=True, v=0.1, block_dim=4000, s=500, ratio_tol=1e-2, smoothing_tol=30, verbose=False):
+    def otsu_and_lm(self, images, ptf=True, v=0.1, block_dim=4000, s=500, ratio_tol=1e-2, smoothing_tol=30, verbose=False):
         otsus = []
         lms = []
         eps = np.finfo(np.float).eps # constant for machine epsilon

@@ -5,7 +5,14 @@ import simplekml
 import rasterio
 from rasterio import Affine
 
-class Image:
+class SaveData:
+        def __init__(self, arr, filename, geo_bounds, raster):
+            self.map = arr
+            self.filename = filename
+            self.geo_bounds = geo_bounds
+            self.raster = raster
+
+class Image(SaveData):
     """ Initialization and reading """
 
     def __init__(self, path):
@@ -29,7 +36,7 @@ class Image:
             new_band = np.where(self.band < lower, lower, self.band)
         if upper:
             new_band = np.where(self.band > upper, upper, self.band)
-        if new_band:
+        try new_band:
             self.band = new_band
 
     # clips the data to lower and upper quantiles
@@ -40,7 +47,7 @@ class Image:
         if upper_quantile:
             upper_q = np.quantile(self.band, upper_quantile)
             new_band = np.where(self.band > upper_q, upper_q, self.band)
-        if new_band:
+        try new_band:
             self.band = new_band
 
     # maps the numeric values in an image to a different interval defined by [a, b]
@@ -58,12 +65,8 @@ class Image:
 
     """ Saving data to disk """
 
-    class SaveData:
-        def __init__(self, map, filename, geo_bounds, raster):
-            self.map = map
-            self.filename = filename
-            self.geo_bounds = geo_bounds
-            self.raster = raster
+    def create_save(self, arr, filename, geo_bounds, raster):
+        return SaveData(arr, filename, geo_bounds, raster)
 
     def save_kml(self, save_point, directory):
         png_path = directory + '/' + save_point.filename + '.png'
@@ -115,7 +118,7 @@ class Image:
                 bounds[i] = math.floor(bounds[i])
         return bounds
 
-    def crop(img, bounds):
+    def crop(self, img, bounds):
         upper_left = img.raster.transform * (bounds[0], bounds[2])
         upper_right = img.raster.transform * (bounds[1], bounds[2])
         lower_left = img.raster.transform * (bounds[0], bounds[3])

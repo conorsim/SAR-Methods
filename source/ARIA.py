@@ -9,7 +9,7 @@ class ARIA(Image):
 
     """ Helper functions """
 
-    def histogram_match(s_band, r_band, s_shape):
+    def histogram_match(self, s_band, r_band, s_shape):
         s_band = np.ndarray.flatten(s_band)
         r_band = np.ndarray.flatten(r_band)
 
@@ -26,14 +26,14 @@ class ARIA(Image):
 
     """ Some functions for making different kinds of coherence difference maps """
 
-    def simple_map(arr, t=0):
+    def simple_map(self, arr, t=0):
         return np.where(arr > t, arr, 0.)
 
-    def binary_map(arr, t=0):
+    def binary_map(self, arr, t=0):
         flood = np.where(arr > t, 1., 0.).astype(np.int8)
         return flood
 
-    def purple_map(arr, t=0): # assume causalty constraint
+    def purple_map(self, arr, t=0): # assume causalty constraint
         rgba = np.zeros((arr.shape[0], arr.shape[1], 4)).astype(np.float32)
         pos = np.where(arr > 0.0)
         x = pos[0]
@@ -55,12 +55,11 @@ class ARIA(Image):
     # map_type - choose a function to generate a numpy array that represents a colored or binary map for ARIA results
 
     # OPTIONAL PARAMETERS
-    # map_directory - where to save any KML or GeoTIFF files
     # file_prefix - prefix to all files being written to disk
 
     # RETURNS
     # save_data - a list of SaveARIA objects
-    def process_ARIA(self, reference, secondarys, t, map_type, map_directory=None, file_prefix=''):
+    def process_ARIA(self, reference, secondarys, t, map_type, file_prefix=''):
         save_data= []
         r_str = reference.path.split('/')[-1] # grab file name
         r_str = r_str.split('.')[0] # remove file extension
@@ -76,7 +75,7 @@ class ARIA(Image):
             diff = np.subtract(r_band, t_band)
             coh_map = map_type(diff, t)
 
-            save_point = SaveData(coh_map, filename, geo_bounds, reference.raster)
+            save_point = self.create_save(coh_map, filename, geo_bounds, reference.raster)
             save_data.append(save_point)
 
         return save_data
