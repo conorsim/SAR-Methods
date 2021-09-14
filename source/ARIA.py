@@ -1,6 +1,7 @@
 from Image import Image
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 class ARIA(Image):
 
@@ -9,6 +10,7 @@ class ARIA(Image):
 
     """ Helper functions """
 
+    # code adapted from https://github.com/mapbox/rio-hist
     def histogram_match(self, s_band, r_band, s_shape):
         s_band = np.ndarray.flatten(s_band)
         r_band = np.ndarray.flatten(r_band)
@@ -23,6 +25,31 @@ class ARIA(Image):
         t_band = t_band.reshape((s_shape[0], s_shape[1]))
 
         return t_band
+
+    def plot_histograms(self, r_band, s_band, t_band, n=256):
+        r_band = np.ndarray.flatten(r_band)
+        s_band = np.ndarray.flatten(s_band)
+        t_band = np.ndarray.flatten(t_band)
+        r_idxs = np.nonzero(r_band)[0]
+        s_idxs = np.nonzero(s_band)[0]
+        t_idxs = np.nonzero(t_band)[0]
+        r_band = r_band[r_idxs]
+        s_band = s_band[s_idxs]
+        t_band = t_band[t_idxs]
+
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(10,10))
+
+        ax[0].hist(r_band, bins=n, density=True, alpha=0.5, color='r', label='Reference Histogram')
+        ax[0].hist(s_band, bins=n, density=True, alpha=0.5, color='b', label='Secondary Histogram')
+        ax[0].legend()
+        ax[0].set_title("Before Matching - {} bins".format(n))
+
+        ax[1].hist(r_band, bins=n, density=True, alpha=0.5, color='r', label='Reference Histogram')
+        ax[1].hist(t_band, bins=n, density=True, alpha=0.5, color='b', label='Target Histogram')
+        ax[1].legend()
+        ax[1].set_title("After Matching - {} bins".format(n))
+
+        plt.show()
 
     """ Some functions for making different kinds of coherence difference maps """
 
@@ -56,10 +83,11 @@ class ARIA(Image):
 
     # OPTIONAL PARAMETERS
     # file_prefix - prefix to all files being written to disk
+    # show_hists - display plots for histogram matching
 
     # RETURNS
-    # save_data - a list of SaveARIA objects
-    def process_ARIA(self, reference, secondarys, t, map_type, file_prefix=''):
+    # save_data - a list of SaveData objects
+    def process_ARIA(self, reference, secondarys, t, map_type, file_prefix='', show_hists=False):
         save_data= []
         r_str = reference.path.split('/')[-1] # grab file name
         r_str = r_str.split('.')[0] # remove file extension
@@ -72,6 +100,10 @@ class ARIA(Image):
             s_band, geo_bounds = self.crop(secondarys[i], bounds)
             r_band, _ = self.crop(reference, bounds)
             t_band = self.histogram_match(s_band, r_band, s_band.shape)
+
+            if show_hists:
+                self.plot_histograms(r_band, s_band, t_band)
+
             diff = np.subtract(r_band, t_band)
             coh_map = map_type(diff, t)
 

@@ -12,8 +12,19 @@ class BimodalThreshold(Image):
 
     def __init__(self, c_bounds):
         self.c_bounds = c_bounds
+        self.deg_const = 0.000089831528412*4000 # a constant physical window size in units of degrees
 
     """ Helper functions """
+
+    # img is an Image object
+    # can change phys_size to allow the window to be a different physical size on the ground (units of degrees)
+    def get_window_size(self, img, phys_size=None):
+        if phys_size == None: phys_size = self.deg_const
+        x, y = rasterio.transform.xy(img.raster.transform, 0, 0)
+        _, intvl = rasterio.transform.rowcol(img.raster.transform, x+phys_size, y)
+        while intvl % 8 != 0:
+            intvl += 1
+        return intvl, int(intvl/8)
 
     def gaussian_convolution(self, y):
         gs = [0.2261, 0.5478, 0.2261] # from Uddin paper
@@ -32,6 +43,7 @@ class BimodalThreshold(Image):
         valley_cnt = 0
         peaks = []
         valleys = []
+        peak_heights = []
         for i in range(1,len(y)):
             if np.abs(y[i-1]) < eps_tol: continue
             else:
@@ -44,11 +56,13 @@ class BimodalThreshold(Image):
                     if sign1 == 1.:
                         peak_cnt += 1
                         peaks.append(fsolve(dcs, x[i]))
+                        peak_heights.append(y[i])
                     else:
                         valley_cnt += 1
-                        valleys.append(fsolve(dcs, x[i]))
-        return peak_cnt, valley_cnt, peaks, valleys
+                        valleys.append(fsolve(dcs, x[i])[0])
+        return peak_cnt, valley_cnt, peaks, valleys, peak_heights
 
+    # legacy code
     def p1_p2_m1_m2_sb_sw_st(self, th, hist, M):
         t_vector = np.arange(0,256,1)
         # splicing
@@ -70,6 +84,7 @@ class BimodalThreshold(Image):
         Bt = sb2/st2
         return Bt
 
+    # legacy code
     def block_arrays_list(self, Base_array, block_dim):
         row, col = Base_array.shape
         Number_row_blocks = math.ceil(row / block_dim)
@@ -93,6 +108,7 @@ class BimodalThreshold(Image):
                 Squares_list.append(item_use)
         return Squares_list, Number_row_blocks, Number_col_blocks
 
+    # legacy code
     def block_arrays(self, Base_array, block_dim):
         Squares_list, Number_row_blocks, Number_col_blocks = self.block_arrays_list(Base_array, block_dim)
         N = 0
@@ -110,6 +126,7 @@ class BimodalThreshold(Image):
                 subset_arrays.append(subset_array)
         return subset_arrays, Number_row_blocks, Number_col_blocks
 
+    # legacy code
     def normalize_array_and_bin(self, subset_array, N):
         subset_array[subset_array == 0] = np.nan
         subset_array_flatten = subset_array.flatten()
@@ -130,7 +147,7 @@ class BimodalThreshold(Image):
             lm_part = []
             print(f"Working on {img.path}")
 
-            if ptf: band = img.band**0.1 # power transform
+            if ptf: band = np.where(img.band > 0., img.band**0.1, 0.) # power transform
             else: band = img.band
 
             subset_arrays, Number_row_blocks1, Number_col_blocks1 = self.block_arrays(band, block_dim)
@@ -151,9 +168,11 @@ class BimodalThreshold(Image):
                     if len(B_vec) > 0: max_B = np.max(B_vec)
                     else: max_B = 0
 
+                    # another condition to check if tile is in a no-data zone
+                    min_cnt = np.sum(subset == np.min(subset))
+
                     # if the BCV condition is met
-                    # added the norm condition for tiles that are mostly out of bounds
-                    if max_B > 0.75 and np.linalg.norm(subset) > 100:
+                    if max_B > 0.75 and min_cnt < 100:
                         # Otsu method
                         subset_flat = subset.flatten()
                         subset_flat = subset_flat[subset_flat != 0]
@@ -171,20 +190,30 @@ class BimodalThreshold(Image):
                             ax[1].set_title(f'Histogram with $B={max_B}$')
                         cs = CubicSpline(x, y)
                         dcs = cs.derivative()
-                        peak_cnt, valley_cnt, peaks, valleys = self.count_peaks(x, y, cs, dcs)
+                        peak_cnt, valley_cnt, peaks, valleys, peak_heights = self.count_peaks(x, y, cs, dcs)
                         count = 0
                         while peak_cnt > 2 and count < smoothing_tol:
                             count += 1
                             y = self.gaussian_convolution(y)
                             cs = CubicSpline(x, y)
                             dcs = cs.derivative()
-                            peak_cnt, valley_cnt, peaks, valleys = self.count_peaks(x, y, cs, dcs)
+                            peak_cnt, valley_cnt, peaks, valleys, peak_heights = self.count_peaks(x, y, cs, dcs)
                         lm_threshold = None
-                        if peak_cnt > 1: # was if peak_cnt <= 4 and peak_cnt > 1
-                            # usually extra peaks come from small, higher peaks
-                            # so just looking at the first two is a good estimate for the bimodal peaks
-                            peak1 = peaks[0]
-                            peak2 = peaks[1]
+
+                        # find the leftmost of the two highest peaks plus the one after that to split
+                        if peak_cnt > 1: 
+                            peakh1 = np.max(peak_heights)
+                            pidx1 = np.argmax(peak_heights)
+                            peak_heights_alt = peak_heights
+                            peak_heights_alt[pidx1] = 0.
+                            peakh2 = np.max(peak_heights_alt)
+                            pidx2 = np.argmax(peak_heights_alt)
+                            peak_list = [peaks[pidx1], peaks[pidx2]]
+                            pidx_list = [pidx1, pidx2]
+                            peak1 = np.min(peak_list)
+                            meta_idx = np.argmin(peak_list)
+                            pidx = pidx_list[meta_idx] + 1
+                            peak2 = peaks[pidx]
 
                             for valley in valleys:
                                 if valley > peak1 and valley < peak2: lm_threshold = valley

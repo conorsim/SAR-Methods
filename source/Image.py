@@ -30,13 +30,13 @@ class Image(SaveData):
 
     """ Data preprocessing """
 
-    # clips the data to lower and upper numeric bounds
+    # clips the data to lower and upper bounds
     def threshold_clip(self, lower=None, upper=None):
         if lower:
             new_band = np.where(self.band < lower, lower, self.band)
         if upper:
             new_band = np.where(self.band > upper, upper, self.band)
-        try new_band:
+        if lower or upper:
             self.band = new_band
 
     # clips the data to lower and upper quantiles
@@ -47,15 +47,15 @@ class Image(SaveData):
         if upper_quantile:
             upper_q = np.quantile(self.band, upper_quantile)
             new_band = np.where(self.band > upper_q, upper_q, self.band)
-        try new_band:
+        if lower_quantile or upper_quantile:
             self.band = new_band
 
-    # maps the numeric values in an image to a different interval defined by [a, b]
+    # maps the values in an image to a different interval defined by [a, b]
     def map_to_interval(self, a, b):
-        min = np.min(self.band)
-        max = np.max(self.band)
-        frac = (b-a) / (max-min)
-        new_band = a + frac*(self.band - min)
+        arr_min = np.min(self.band)
+        arr_max = np.max(self.band)
+        frac = (b-a) / (arr_max-arr_min)
+        new_band = a + frac*(self.band - arr_min)
         self.band = new_band
 
     # convert data from a linear scale to a decibel scale
