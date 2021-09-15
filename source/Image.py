@@ -32,22 +32,22 @@ class Image(SaveData):
 
     # clips the data to lower and upper bounds
     def threshold_clip(self, lower=None, upper=None):
-        if lower:
+        if lower != None:
             new_band = np.where(self.band < lower, lower, self.band)
-        if upper:
+            self.band = new_band
+        if upper != None:
             new_band = np.where(self.band > upper, upper, self.band)
-        if lower or upper:
             self.band = new_band
 
     # clips the data to lower and upper quantiles
     def quantile_clip(self, lower_quantile=None, upper_quantile=None):
-        if lower_quantile:
+        if lower_quantile != None:
             lower_q = np.quantile(self.band, lower_quantile)
             new_band = np.where(self.band < lower_q, lower_q, self.band)
-        if upper_quantile:
+            self.band = new_band
+        if upper_quantile != None:
             upper_q = np.quantile(self.band, upper_quantile)
             new_band = np.where(self.band > upper_q, upper_q, self.band)
-        if lower_quantile or upper_quantile:
             self.band = new_band
 
     # maps the values in an image to a different interval defined by [a, b]

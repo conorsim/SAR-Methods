@@ -1,4 +1,4 @@
-from Image import Image
+from source.Image import Image
 import numpy as np
 import rasterio
 import gc

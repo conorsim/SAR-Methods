@@ -1,4 +1,4 @@
-from Image import Image
+from source.Image import Image
 import numpy as np
 import rasterio
 from skimage import filters
@@ -85,12 +85,12 @@ class BimodalThreshold(Image):
         return Bt
 
     # legacy code
-    def block_arrays_list(self, Base_array, block_dim):
-        row, col = Base_array.shape
-        Number_row_blocks = math.ceil(row / block_dim)
-        Number_col_blocks = math.ceil(col / block_dim)
-        row_indexes = np.arange(0, Number_row_blocks * block_dim + 1, block_dim)
-        col_indexes = np.arange(0, Number_col_blocks * block_dim + 1, block_dim)
+    def block_arrays_list(self, base_arr, block_dim):
+        row, col = base_arr.shape
+        num_row_blocks = math.ceil(row / block_dim)
+        num_col_blocks = math.ceil(col / block_dim)
+        row_indexes = np.arange(0, num_row_blocks * block_dim + 1, block_dim)
+        col_indexes = np.arange(0, num_col_blocks * block_dim + 1, block_dim)
         col_list = []
         row_list = []
         for i in range(0, len(col_indexes) - 1):
@@ -101,36 +101,37 @@ class BimodalThreshold(Image):
             row_s, row_e = row_indexes[j], row_indexes[j + 1]
             set_1 = str(row_s) + ':' + str(row_e)
             row_list.append(set_1)
-        Squares_list = []
+        squares_list = []
         for row_item in row_list:
             for col_item in col_list:
                 item_use = row_item + ',' + col_item
-                Squares_list.append(item_use)
-        return Squares_list, Number_row_blocks, Number_col_blocks
+                squares_list.append(item_use)
+        return squares_list, num_row_blocks, num_col_blocks
 
     # legacy code
-    def block_arrays(self, Base_array, block_dim):
-        Squares_list, Number_row_blocks, Number_col_blocks = self.block_arrays_list(Base_array, block_dim)
-        N = 0
+    def block_arrays(self, base_arr, block_dim):
+        squares_list, num_row_blocks, num_col_blocks = self.block_arrays_list(base_arr, block_dim)
         subset_arrays = []
-        for j in range(0, Number_row_blocks):
-            for i in range(0, Number_col_blocks):
-                square_list_str = Squares_list[N]
+        for j in range(0, num_row_blocks):
+            for i in range(0, num_col_blocks):
+                square_list_str = squares_list[i+j]
                 square_list_row_s, square_list_row_e = int(square_list_str.split(',')[0].split(':')[0]), int(
                     square_list_str.split(',')[0].split(':')[1])
                 square_list_col_s, square_list_col_e = int(square_list_str.split(',')[1].split(':')[0]), int(
                     square_list_str.split(',')[1].split(':')[1])
-                subset_array = Base_array[square_list_row_s:square_list_row_e, square_list_col_s:square_list_col_e]
-                subset_array[subset_array == 0] = np.nan # gets rid of NaNs
-                N = N + 1
+                subset_array = base_arr[square_list_row_s:square_list_row_e, square_list_col_s:square_list_col_e]
+
+                # subset_array[subset_array == 0] = np.nan # gets rid of NaNs
+
                 subset_arrays.append(subset_array)
-        return subset_arrays, Number_row_blocks, Number_col_blocks
+        return subset_arrays, num_row_blocks, num_col_blocks
 
     # legacy code
-    def normalize_array_and_bin(self, subset_array, N):
-        subset_array[subset_array == 0] = np.nan
-        subset_array_flatten = subset_array.flatten()
-        subset_array_norm = (subset_array_flatten - min(subset_array_flatten))/(max(subset_array_flatten) - min(subset_array_flatten))
+    def normalize_array_and_bin(self, subset_array_flat, N):
+        # subset_array[subset_array == 0] = np.nan
+
+        # subset_array_flatten = subset_array.flatten()
+        subset_array_norm = (subset_array_flat - min(subset_array_flat))/(max(subset_array_flat) - min(subset_array_flat))
         bins = np.linspace(0, 1, N) # spacing of 256 discrete points between 0 and 1
         bin_count = np.histogram(subset_array_norm, bins)[0] # returns the count in each bin
         M = len(subset_array_norm)
@@ -150,15 +151,18 @@ class BimodalThreshold(Image):
             if ptf: band = np.where(img.band > 0., img.band**0.1, 0.) # power transform
             else: band = img.band
 
-            subset_arrays, Number_row_blocks1, Number_col_blocks1 = self.block_arrays(band, block_dim)
+            subset_arrays, _, _ = self.block_arrays(band, block_dim)
             for subset_array, i in zip(subset_arrays, range(len(subset_arrays))):
-                Squares_list, Number_row_blocks, Number_col_blocks = self.block_arrays_list(subset_array, s)
-                for square in Squares_list: # looping through the 'x_1:x_2,y_1:y_2' structure
-                    square_list_row_s, square_list_row_e = int(square.split(',')[0].split(':')[0]), int(square.split(',')[0].split(':')[1])
-                    square_list_col_s, square_list_col_e = int(square.split(',')[1].split(':')[0]), int(square.split(',')[1].split(':')[1])
-                    subset = subset_array[square_list_row_s:square_list_row_e, square_list_col_s:square_list_col_e] # makes the most granular subarray or tile
+                tiles, _, _ = self.block_arrays(subset_array, s)
+                for tile in tiles: # looping through the 'x_1:x_2,y_1:y_2' structure
+                    # square_list_row_s, square_list_row_e = int(square.split(',')[0].split(':')[0]), int(square.split(',')[0].split(':')[1])
+                    # square_list_col_s, square_list_col_e = int(square.split(',')[1].split(':')[0]), int(square.split(',')[1].split(':')[1])
+                    # subset = subset_array[square_list_row_s:square_list_row_e, square_list_col_s:square_list_col_e] # makes the most granular subarray or tile
 
-                    bin_count, M = self.normalize_array_and_bin(subset, 256)
+                    tile_flat = tile.flatten()
+                    tile_flat = tile_flat[tile_flat != 0]
+
+                    bin_count, M = self.normalize_array_and_bin(tile_flat, 256)
                     t_vector = np.arange(0,256,1) # vector in interval [0, 255]
                     B_vec = []
                     for th in t_vector:
@@ -169,22 +173,22 @@ class BimodalThreshold(Image):
                     else: max_B = 0
 
                     # another condition to check if tile is in a no-data zone
-                    min_cnt = np.sum(subset == np.min(subset))
+                    min_cnt = np.sum(tile == np.min(tile))
 
                     # if the BCV condition is met
                     if max_B > 0.75 and min_cnt < 100:
                         # Otsu method
-                        subset_flat = subset.flatten()
-                        subset_flat = subset_flat[subset_flat != 0]
-                        otsu_threshold = filters.threshold_otsu(image=subset_flat, nbins=256)
+                        # tile_flat = tile.flatten()
+                        # tile_flat = tile_flat[tile_flat != 0]
+                        otsu_threshold = filters.threshold_otsu(image=tile_flat, nbins=256)
                         otsu_part.append(otsu_threshold)
 
                         # LM method
-                        y, bins = np.histogram(subset_flat, bins=256)
+                        y, bins = np.histogram(tile_flat, bins=256)
                         x = (bins[1:]+bins[:-1]) / 2
                         if verbose:
                             fig, ax = plt.subplots(ncols=3, figsize=(20,6))
-                            ax[0].imshow(subset, cmap='gray')
+                            ax[0].imshow(tile, cmap='gray')
                             ax[0].set_title(f'Tile of amplitude image')
                             ax[1].plot(x,y)
                             ax[1].set_title(f'Histogram with $B={max_B}$')
