@@ -91,22 +91,20 @@ class BimodalThreshold(Image):
         num_col_blocks = math.ceil(col / block_dim)
         row_indexes = np.arange(0, num_row_blocks * block_dim + 1, block_dim)
         col_indexes = np.arange(0, num_col_blocks * block_dim + 1, block_dim)
-        col_list = []
-        row_list = []
-        for i in range(0, len(col_indexes) - 1):
-            col_s, col_e = col_indexes[i], col_indexes[i + 1]
-            set_1 = str(col_s) + ':' + str(col_e)
-            col_list.append(set_1)
-        for j in range(0, len(row_indexes) - 1):
-            row_s, row_e = row_indexes[j], row_indexes[j + 1]
-            set_1 = str(row_s) + ':' + str(row_e)
-            row_list.append(set_1)
-        squares_list = []
-        for row_item in row_list:
-            for col_item in col_list:
+        indicies = []
+        for i in range(0, len(row_indexes) - 1):
+            row_s, row_e = row_indexes[i], row_indexes[i + 1]
+            row_item = str(row_s) + ':' + str(row_e)
+            inner = []
+            for j in range(0, len(col_indexes) - 1):
+                col_s, col_e = col_indexes[j], col_indexes[j + 1]
+                col_item = str(col_s) + ':' + str(col_e)
                 item_use = row_item + ',' + col_item
-                squares_list.append(item_use)
-        return squares_list, num_row_blocks, num_col_blocks
+                inner.append(item_use)
+            indicies.append(inner)
+        indicies = np.array(indicies)
+                
+        return indicies, num_row_blocks, num_col_blocks
 
     # legacy code
     def block_arrays(self, base_arr, block_dim):
@@ -114,23 +112,18 @@ class BimodalThreshold(Image):
         subset_arrays = []
         for j in range(0, num_row_blocks):
             for i in range(0, num_col_blocks):
-                square_list_str = squares_list[i+j]
+                square_list_str = squares_list[j, i]
                 square_list_row_s, square_list_row_e = int(square_list_str.split(',')[0].split(':')[0]), int(
                     square_list_str.split(',')[0].split(':')[1])
                 square_list_col_s, square_list_col_e = int(square_list_str.split(',')[1].split(':')[0]), int(
                     square_list_str.split(',')[1].split(':')[1])
                 subset_array = base_arr[square_list_row_s:square_list_row_e, square_list_col_s:square_list_col_e]
 
-                # subset_array[subset_array == 0] = np.nan # gets rid of NaNs
-
                 subset_arrays.append(subset_array)
         return subset_arrays, num_row_blocks, num_col_blocks
 
     # legacy code
     def normalize_array_and_bin(self, subset_array_flat, N):
-        # subset_array[subset_array == 0] = np.nan
-
-        # subset_array_flatten = subset_array.flatten()
         subset_array_norm = (subset_array_flat - min(subset_array_flat))/(max(subset_array_flat) - min(subset_array_flat))
         bins = np.linspace(0, 1, N) # spacing of 256 discrete points between 0 and 1
         bin_count = np.histogram(subset_array_norm, bins)[0] # returns the count in each bin
@@ -154,13 +147,13 @@ class BimodalThreshold(Image):
             subset_arrays, _, _ = self.block_arrays(band, block_dim)
             for subset_array, i in zip(subset_arrays, range(len(subset_arrays))):
                 tiles, _, _ = self.block_arrays(subset_array, s)
-                for tile in tiles: # looping through the 'x_1:x_2,y_1:y_2' structure
-                    # square_list_row_s, square_list_row_e = int(square.split(',')[0].split(':')[0]), int(square.split(',')[0].split(':')[1])
-                    # square_list_col_s, square_list_col_e = int(square.split(',')[1].split(':')[0]), int(square.split(',')[1].split(':')[1])
-                    # subset = subset_array[square_list_row_s:square_list_row_e, square_list_col_s:square_list_col_e] # makes the most granular subarray or tile
+                for tile in tiles:
 
                     tile_flat = tile.flatten()
                     tile_flat = tile_flat[tile_flat != 0]
+
+                    # handle case of only 0's
+                    if len(tile_flat) == 0: continue
 
                     bin_count, M = self.normalize_array_and_bin(tile_flat, 256)
                     t_vector = np.arange(0,256,1) # vector in interval [0, 255]
