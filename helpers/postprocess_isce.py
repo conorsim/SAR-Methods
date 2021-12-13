@@ -53,3 +53,6 @@ os.system(f"looks.py -i reference.slc.norm -o reference.slc.norm.ml -r {args.ran
 # Geocoding
 os.system(f"{args.geocode_script_path} -f reference.slc.norm.ml -b '{args.bbox[0]} {args.bbox[1]} {args.bbox[2]} {args.bbox[3]}' \
     -d {args.dem_path.split('/')[-1]} -m ../reference/ -s ../secondary/ -r {args.range_looks} -a {args.azimuth_looks}")
+
+# Convert to TIFF
+os.system("gdal_translate -of GTiff reference.slc.norm.ml.geo reference.slc.norm.ml.geo.tif")
