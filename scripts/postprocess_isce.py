@@ -11,8 +11,10 @@ parser.add_argument('-r', '--range_looks', type=int, help="Number of range looks
 parser.add_argument('-a', '--azimuth_looks', type=int, help="Number of azimuth looks", required=True)
 parser.add_argument('-d', '--dem_path', type=str, help="Path to the DEM in ENVI format used in processing", required=True)
 parser.add_argument('-g', '--geocode_script_path', type=str, help="Path to the ISCE's geocodeIsce.py file", required=True)
-parser.add_argument('-b', '--bbox', type=int, nargs='+', help="List of lat/lon bounding box coordinated in the order S,N,W,E", required=True)
+parser.add_argument('-b', '--bbox', type=float, nargs='+', help="List of lat/lon bounding box coordinated in the order S,N,W,E", required=True)
 args = parser.parse_args()
+
+print("Preparing directory...")
 
 # need to be in the ISCE merged/ directory
 if not os.path.exists(os.getcwd()+'/master.slc.full.vrt'):
@@ -30,29 +32,35 @@ if not os.path.exists(args.geocode_script_path):
 os.system(f"cp {args.dem_path}* {os.getcwd()}")
 
 # generate ISCE files for DEM if they do not already exist
-if (not os.path.exists(f"{os.getcwd()+'/'+{args.dem_path.split('/')[-1]}}.vrt")) \
-    or (not os.path.exists(f"{os.getcwd()+'/'+{args.dem_path.split('/')[-1]}}.xml")):
-    os.system(f"gdal2isce_xml.py -i {os.getcwd()+'/'+{args.dem_path.split('/')[-1]}}")
+if (not os.path.exists(os.getcwd()+'/'+args.dem_path.split('/')[-1]+".vrt")) \
+    or (not os.path.exists(os.getcwd()+'/'+args.dem_path.split('/')[-1]+".xml")):
+    os.system(f"gdal2isce_xml.py -i {os.getcwd()+'/'+args.dem_path.split('/')[-1]}")
 
+print("Converting SLC to ENVI")
 # convert the full SLC to ENVI format
 os.system("gdal_translate -of ENVI master.slc.full.vrt reference.slc.full")
 
+print("Generating ISCE files for SLC")
 # generate ISCE files for the full SLC
 os.system("gdal2isce_xml.py -i reference.slc.full")
 
+print("Converting LOS to ENVI")
 # convert the full line of sight (incident angle) file to ENVI format
 os.system("gdal_translate -of ENVI los.rdr.full.vrt los.rdr.full")
 
+print("Executing Radiometric Normalization")
 # Radiometric Normalization using band math
-os.system("imageMath.py -e='abs(a)*cos(b_0*PI/180.)/cos(b_1*PI/180.)' \
-    --a=reference.slc.full --b=los.rdr.full -o=reference.slc.norm -t FLOAT -s BIL")
+os.system("imageMath.py -e='abs(a)*sin(b_0*PI/180.)' --a=reference.slc.full --b=los.rdr.full -o=reference.slc.norm -t FLOAT -s BIL")
 
+print("Executing Multi-Looking")
 # Multi-looking
 os.system(f"looks.py -i reference.slc.norm -o reference.slc.norm.ml -r {args.range_looks} -a {args.azimuth_looks}")
 
+print("Executing Geocoding")
 # Geocoding
 os.system(f"{args.geocode_script_path} -f reference.slc.norm.ml -b '{args.bbox[0]} {args.bbox[1]} {args.bbox[2]} {args.bbox[3]}' \
     -d {args.dem_path.split('/')[-1]} -m ../reference/ -s ../secondary/ -r {args.range_looks} -a {args.azimuth_looks}")
 
+print("Converting final product to TIFF")
 # Convert to TIFF
 os.system("gdal_translate -of GTiff reference.slc.norm.ml.geo reference.slc.norm.ml.geo.tif")

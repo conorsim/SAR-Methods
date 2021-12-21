@@ -132,7 +132,7 @@ class BimodalThreshold(Image):
 
     """ Driver to process using LM and Otsu """
 
-    def otsu_and_lm(self, images, ptf=True, v=0.1, block_dim=4000, s=500, ratio_tol=1e-2, smoothing_tol=30, verbose=False):
+    def otsu_and_lm(self, images, ptf=True, v=0.1, block_dim=4000, s=500, B_thresh=0.75, smoothing_tol=30, verbose=False):
         otsus = []
         lms = []
         eps = np.finfo(np.float).eps # constant for machine epsilon
@@ -141,7 +141,7 @@ class BimodalThreshold(Image):
             lm_part = []
             print(f"Working on {img.path}")
 
-            if ptf: band = np.where(img.band > 0., img.band**0.1, 0.) # power transform
+            if ptf: band = np.where(img.band > 0., img.band**v, 0.) # power transform
             else: band = img.band
 
             subset_arrays, _, _ = self.block_arrays(band, block_dim)
@@ -169,7 +169,7 @@ class BimodalThreshold(Image):
                     min_cnt = np.sum(tile == np.min(tile))
 
                     # if the BCV condition is met
-                    if max_B > 0.75 and min_cnt < 100:
+                    if max_B > B_thresh and min_cnt < 100:
                         # Otsu method
                         # tile_flat = tile.flatten()
                         # tile_flat = tile_flat[tile_flat != 0]

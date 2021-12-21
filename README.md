@@ -13,12 +13,8 @@ Please visit the `notebooks` folder for some examples of processing!
 
 ### Software Dependencies
 
-- `rasterio` (version 1.1.4)
-- `scikit-image`
-- `scipy`
-- `numpy`
-- `matplotlib`
-- `simplekml`
+- Python 3.8
+- Run `pip install -r requirements.txt`
 
 ### References
 

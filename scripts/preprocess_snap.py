@@ -5,9 +5,18 @@ import glob
 from subprocess import Popen, PIPE, STDOUT
 import shutil
 
-# Where the Sentinel 1 Toolbox graphing tool exe is located
-baseSNAP = '/opt/snap/bin/gpt'
+"""
+This script converts Sentinel-1 GRDH data to an amplitude product.
+"""
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-gpt', '--gpt_path', type=str, help="Path to gpt executable", required=True)
+parser.add_argument('-data', '--data_path', type=str, help="Path to Sentinel-1 zip files (can use Kleene star with glob)", required=True)
+parser.add_argument('-dem', '--dem_path', type=str, default="", help="Path to external DEM (otherwise SRTM is used)")
+args = parser.parse_args()
+
+# Where the Sentinel 1 Toolbox graphing tool exe is located
+baseSNAP = args.gpt_path
 
 def timestamp(date):
     return time.mktime(date.timetuple())
@@ -88,11 +97,6 @@ def applyTC(new_dir, in_data_path, baseGran, pixsiz, extDEM):
     in_data_cmd = in_data_cmd + '-PsaveDEM=false '
     in_data_cmd = in_data_cmd + '-PsaveProjectedLocalIncidenceAngle=false '
     in_data_cmd = in_data_cmd + '-PpixelSpacingInMeter=' + str(pixsiz) + ' '
-    # zone, cm, hemi,
-    #     if hemi == "S":
-    #         in_data_cmd = in_data_cmd + '-PmapProjection=EPSG:327%02d ' % zone
-    #     else:
-    #         in_data_cmd = in_data_cmd + '-PmapProjection=EPSG:326%02d ' % zone
 
     if extDEM != " ":
         in_data_cmd = in_data_cmd + ' -PdemName=\"External DEM\" -PexternalDEMFile=%s -PexternalDEMNoDataValue=0 ' % extDEM
@@ -157,16 +161,11 @@ def Process_GRD_File(GRD_input_list, pixsiz=10.0, extDEM_path=" "):
         # Sigma0_directory = dB_Conversion.replace('.dim', '.data')
         Sigma0_directory = Terrain_Correction.replace('.dim', '.data')
         Sigma0_FF_2_gtif(Output_Directory, Sigma0_directory, granule)
-        # clean up
-#         dir_processed = glob.glob(Output_Directory + '/' + 'S1?*.data')
-#         dir_processed = [x.replace('\\', '/') for x in glob.glob(Output_Directory + '/' + 'S1?*.data')]
-#         if Sigma0_directory in dir_processed:
-#             dir_processed.remove(Sigma0_directory)
-#         for dir_delete in dir_processed:
-#             try:
-#                 shutil.rmtree(dir_delete)
-#             except:
-#                 print('part of remove failed')
+
     end_time = datetime.datetime.now()
     Total_time = timestamp(end_time) - timestamp(start_time)
     return Total_time
+
+Data_paths = glob.glob(args.data_path)
+Process_GRD = Process_GRD_File(Data_paths, pixsiz=pixsiz, extDEM_path=args.dem_path)
+print(Process_GRD)
