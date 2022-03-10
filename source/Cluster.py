@@ -28,21 +28,20 @@ class Cluster(Image):
         VH.convert_to_dB()
         VV.convert_to_dB()
 
+        # quantile clipping
+        VH.quantile_clip(upper_quantile=0.99)
+        VV.quantile_clip(upper_quantile=0.99)
+
+        # map to interval [0,1]
+        VH.map_to_interval(0, 1)
+        VV.map_to_interval(0, 1)
+
         # make the ratio band
         ratio_band = np.divide(VH.band, VV.band)
         ratio_band = np.where(VV.band == 0., 0., ratio_band) # handle divide by zero
         # ratio_band = np.where(VH_band == 0., 0., ratio_band)
         ratio = Image(None)
         ratio.band = ratio_band
-
-        # quantile clipping
-        VH.quantile_clip(upper_quantile=0.99)
-        VV.quantile_clip(upper_quantile=0.99)
-        ratio.quantile_clip(upper_quantile=0.99)
-
-        # map to interval [0,1]
-        VH.map_to_interval(0, 1)
-        VV.map_to_interval(0, 1)
         ratio.map_to_interval(0, 1)
 
         # return a numpy array because Image objects are only tested for single channel images
